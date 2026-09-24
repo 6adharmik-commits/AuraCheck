@@ -31,12 +31,13 @@ export default function ImageUploader({ file, preview, onSelect, onRemove, onAna
   const validateAndUse = (candidate?: File) => {
     setError("");
     if (!candidate) return;
-    if (!allowed.includes(candidate.type)) {
-      setError("Please choose a JPG, JPEG, PNG, or WEBP image.");
+    const looksLikeImage = candidate.type.startsWith("image/") || knownImageExt.test(candidate.name);
+    if (!looksLikeImage) {
+      setError("Please choose an image from your camera or gallery.");
       return;
     }
     if (candidate.size > MAX) {
-      setError("That photo is over 10 MB. Choose a smaller image.");
+      setError("That photo is over 25 MB. Choose a smaller image or use a normal camera mode.");
       return;
     }
     if (!candidate.size) {
@@ -81,7 +82,7 @@ export default function ImageUploader({ file, preview, onSelect, onRemove, onAna
                   <ImagePlus size={28} className="text-pink-300" />
                 </div>
                 <h2 className="text-xl font-black">Drop your look here</h2>
-                <p className="mt-2 text-sm text-white/45">JPG, JPEG, PNG or WEBP · max 10 MB</p>
+                <p className="mt-2 text-sm text-white/45">JPG, PNG, WEBP or phone camera photo · max 25 MB</p>
 
                 <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
                   <button type="button" onClick={() => picker.current?.click()} className="gradient-btn rounded-2xl px-5 py-3 text-sm font-black">
