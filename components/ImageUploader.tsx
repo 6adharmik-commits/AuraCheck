@@ -5,8 +5,8 @@ import { Camera, ImagePlus, Trash2, RefreshCw } from "lucide-react";
 import ErrorMessage from "./ErrorMessage";
 import CameraCapture from "./CameraCapture";
 
-const allowed = ["image/jpeg", "image/png", "image/webp"];
-const MAX = 10 * 1024 * 1024;
+const MAX = 25 * 1024 * 1024;
+const knownImageExt = /\.(jpe?g|png|webp|heic|heif)$/i;
 
 function isLikelyPhoneOrTablet() {
   if (typeof window === "undefined") return false;
@@ -127,7 +127,7 @@ export default function ImageUploader({ file, preview, onSelect, onRemove, onAna
           ref={picker}
           hidden
           type="file"
-          accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+          accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
           onChange={(event) => {
             validateAndUse(event.target.files?.[0]);
             event.currentTarget.value = "";
