@@ -124,7 +124,36 @@ export async function analyzeWithGemini(bytes: Buffer, mimeType: string): Promis
       }
     );
 
-    if (!response.ok) throw new Error(`PROVIDER_${response.status}`);
+    if (!response.ok) {
+      const raw = await response.text().catch(() => "");
+      let providerMessage = "";
+      try {
+        const parsed = raw ? JSON.parse(raw) : null;
+        providerMessage =
+          parsed?.error?.message ||
+          parsed?.message ||
+          "";
+      } catch {
+        providerMessage = raw;
+      }
+
+      const safeMessage = String(providerMessage)
+        .replace(/AIza[0-9A-Za-z_-]{20,}/g, "[redacted]")
+        .slice(0, 300);
+
+      if (
+        response.status === 400 &&
+        /api.?key|key.?invalid|invalid.?key|credential/i.test(safeMessage)
+      ) {
+        throw new Error("PROVIDER_AUTH_400");
+      }
+
+      throw new Error(
+        safeMessage
+          ? `PROVIDER_${response.status}:${safeMessage}`
+          : `PROVIDER_${response.status}`
+      );
+    }
 
     const payload = await response.json();
     const text = payload?.candidates?.[0]?.content?.parts
