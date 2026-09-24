@@ -1,0 +1,36 @@
+name: Deploy AuraCheck source
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  unpack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Unpack AuraCheck
+        shell: bash
+        run: |
+          test -f auracheck.tar.gz
+          rm -rf .stage
+          mkdir .stage
+          tar -xzf auracheck.tar.gz -C .stage
+          shopt -s dotglob nullglob
+          cp -R .stage/AuraCheck/* .
+          rm -rf .stage auracheck.tar.gz .github/workflows/unpack.yml
+
+      - name: Commit source files
+        shell: bash
+        run: |
+          git config user.name "AuraCheck Deploy Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "Deploy AuraCheck app" || exit 0
+          git push origin main
