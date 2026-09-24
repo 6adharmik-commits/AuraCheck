@@ -8,7 +8,6 @@ import AuraResult from "@/components/AuraResult";
 import ErrorMessage from "@/components/ErrorMessage";
 import { AuraAnalysis, AuraResultRecord } from "@/lib/types";
 import { extractColors, makeCompressedDataUrl, makeUploadFile } from "@/lib/colorExtractor";
-import { matchSongs } from "@/lib/songs";
 import { demoAnalysis } from "@/lib/demo";
 import { clearCurrentResult, getCurrentResult, saveToHistory, setCurrentResult } from "@/lib/storage";
 
@@ -44,8 +43,6 @@ function Analyzer() {
       return;
     }
 
-    // A normal visit to /analyze must always open the uploader.
-    // This prevents an old demo/history result from taking over CHECK MY AURA.
     clearCurrentResult();
     setResult(null);
     setFile(null);
@@ -61,7 +58,7 @@ function Analyzer() {
       timestamp:Date.now(),
       imageDataUrl,
       analysis,
-      songs:matchSongs(analysis,32),
+      songs:[],
       localColors,
       demoMode
     };
@@ -120,7 +117,7 @@ function Analyzer() {
       <div className="mx-auto mb-7 max-w-2xl text-center">
         <p className="text-xs font-black tracking-[.28em] text-pink-300">AURACHECK SCAN</p>
         <h1 className="mt-3 text-4xl font-black tracking-[-.045em] sm:text-5xl">Upload the look. <span className="gradient-text">Find the vibe.</span></h1>
-        <p className="mt-4 text-sm leading-6 text-white/45">We analyze fashion, colors, styling, pose, lighting and visual aesthetic — not identity or sensitive personal traits.</p>
+        <p className="mt-4 text-sm leading-6 text-white/45">AI decides the vibe, captions, soundtrack, colors and playful image-specific scores from the photo.</p>
       </div>
       {error && <div className="mx-auto mb-4 max-w-3xl"><ErrorMessage message={error} onRetry={()=>setError("")}/></div>}
       <div className="mx-auto max-w-3xl">
