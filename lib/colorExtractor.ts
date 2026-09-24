@@ -67,3 +67,43 @@ export async function makeCompressedDataUrl(file: File, maxSide = 900, quality =
   bitmap.close();
   return canvas.toDataURL("image/jpeg", quality);
 }
+
+/**
+ * Mobile camera photos can easily be 5-15 MB. Vercel Functions have a much
+ * smaller request-body ceiling, so sending the original phone photo can fail
+ * before /api/analyze even runs. Convert every selected image to a reasonably
+ * sized JPEG before POSTing it.
+ */
+export async function makeUploadFile(
+  file: File,
+  maxSide = 1600,
+  quality = .82
+): Promise<File> {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(maxSide / bitmap.width, maxSide / bitmap.height, 1);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    bitmap.close();
+    throw new Error("Canvas unavailable");
+  }
+
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      value => value ? resolve(value) : reject(new Error("Image conversion failed")),
+      "image/jpeg",
+      quality
+    );
+  });
+
+  return new File([blob], `auracheck-${Date.now()}.jpg`, {
+    type: "image/jpeg",
+    lastModified: Date.now()
+  });
+}
