@@ -58,11 +58,37 @@ export async function POST(request: Request) {
     if (message.includes("aborted") || message.includes("AbortError")) {
       return jsonError("AuraCheck took too long to analyze that photo. Please try again.", 504, "AI_TIMEOUT");
     }
-    if (message === "PROVIDER_401" || message === "PROVIDER_403") {
-      return jsonError("The Gemini API key was rejected. Check GEMINI_API_KEY in Vercel.", 502, "AI_AUTH_ERROR");
+    if (
+      message === "PROVIDER_AUTH_400" ||
+      message.startsWith("PROVIDER_401") ||
+      message.startsWith("PROVIDER_403")
+    ) {
+      return jsonError(
+        "Your Gemini API key is not being accepted. Open Vercel → AuraCheck → Settings → Environment Variables, replace GEMINI_API_KEY with a valid Google AI Studio key, then redeploy.",
+        502,
+        "AI_AUTH_ERROR"
+      );
     }
-    if (message === "PROVIDER_429") {
+    if (message.startsWith("PROVIDER_429")) {
       return jsonError("Gemini is rate-limited or out of quota right now. Try again shortly.", 429, "AI_RATE_LIMIT");
+    }
+    if (message.startsWith("PROVIDER_404")) {
+      return jsonError(
+        "The configured Gemini model is unavailable. Remove GEMINI_MODEL in Vercel (AuraCheck will use gemini-3.8-flash), then redeploy.",
+        502,
+        "AI_MODEL_ERROR"
+      );
+    }
+    if (message.startsWith("PROVIDER_400:")) {
+      const detail = message.slice("PROVIDER_400:".length).trim();
+      return jsonError(
+        detail ? `Gemini rejected the request: ${detail}` : "Gemini rejected the request. Check the API configuration.",
+        502,
+        "AI_BAD_REQUEST"
+      );
+    }
+    if (message.startsWith("PROVIDER_5")) {
+      return jsonError("Gemini is temporarily unavailable. Please try again shortly.", 502, "AI_PROVIDER_ERROR");
     }
     if (message.startsWith("PROVIDER_")) {
       return jsonError("The AI service is having trouble right now. Please try again.", 502, "AI_PROVIDER_ERROR");
