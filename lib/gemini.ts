@@ -90,7 +90,13 @@ export async function analyzeWithGemini(bytes: Buffer, mimeType: string): Promis
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) throw new Error("MISSING_API_KEY");
 
-  const model = process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash";
+  const configuredModel = process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash";
+  const model = configuredModel
+    .replace(/^["'`]|["'`]$/g, "")
+    .replace(/^https:\/\/generativelanguage\.googleapis\.com\/v1beta\/models\//i, "")
+    .replace(/^models\//i, "")
+    .replace(/:generateContent.*$/i, "")
+    .trim() || "gemini-3.8-flash";
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 50000);
 
