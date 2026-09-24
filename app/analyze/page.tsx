@@ -7,7 +7,7 @@ import LoadingAnalysis from "@/components/LoadingAnalysis";
 import AuraResult from "@/components/AuraResult";
 import ErrorMessage from "@/components/ErrorMessage";
 import { AuraAnalysis, AuraResultRecord } from "@/lib/types";
-import { extractColors, makeCompressedDataUrl } from "@/lib/colorExtractor";
+import { extractColors, makeCompressedDataUrl, makeUploadFile } from "@/lib/colorExtractor";
 import { matchSongs } from "@/lib/songs";
 import { demoAnalysis } from "@/lib/demo";
 import { clearCurrentResult, getCurrentResult, saveToHistory, setCurrentResult } from "@/lib/storage";
@@ -81,12 +81,13 @@ function Analyzer() {
     if(!file) return setError("Choose a photo first.");
     setError(""); setLoading(true);
     try{
-      const [colors,imageDataUrl] = await Promise.all([
+      const [colors,imageDataUrl,uploadFile] = await Promise.all([
         extractColors(file).catch(()=>[]),
-        makeCompressedDataUrl(file).catch(()=>preview)
+        makeCompressedDataUrl(file).catch(()=>preview),
+        makeUploadFile(file)
       ]);
       const form=new FormData();
-      form.append("image",file);
+      form.append("image",uploadFile);
       const response=await fetch("/api/analyze",{method:"POST",body:form});
       const payload=await response.json().catch(()=>({}));
       if(!response.ok) throw new Error(payload.error || "AuraCheck couldn't analyze that photo.");
@@ -97,7 +98,11 @@ function Analyzer() {
       setCurrentResult(record); saveToHistory(record); setResult(record);
     }catch(e){
       const message=e instanceof Error ? e.message : "AuraCheck couldn't analyze that photo.";
-      setError(message.includes("fetch") ? "Network problem. Check your connection and try again." : message);
+      if (message.includes("Image conversion failed") || message.includes("Canvas unavailable")) {
+        setError("That photo format couldn't be prepared for upload. Try a JPG/PNG photo or take a normal camera photo.");
+      } else {
+        setError(message.includes("fetch") ? "Network problem. Check your connection and try again." : message);
+      }
     }finally{setLoading(false);}
   }
 
