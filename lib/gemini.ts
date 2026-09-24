@@ -1,26 +1,49 @@
 import { AuraAnalysis } from "./types";
 
-const SYSTEM_PROMPT = `You are AuraCheck, a fashion and aesthetic image analyzer.
+const SYSTEM_PROMPT = `You are AuraCheck, an AI visual-vibe analyzer.
 
-Analyze ONLY what is visibly present in the uploaded image: outfit, colors, styling, accessories, pose, lighting, composition, setting and overall visual aesthetic.
+Analyze ONLY what is visibly present in the uploaded image: clothing, colors, styling, accessories, pose, expression, lighting, background, composition, setting and overall visual aesthetic.
 Do not identify the person.
-Do not guess race, ethnicity, religion, sexuality, health, income, politics or other sensitive personal attributes.
+Do not guess race, ethnicity, religion, sexuality, health, income, politics, nationality or other sensitive personal attributes.
+Do not infer the person's real personality, mental state or actual confidence.
 Do not negatively criticize physical appearance.
-Do not infer the person's real personality or psychological confidence.
 
-Choose a clear primary vibe and secondary vibe based on THIS image.
-Provide a fun, positive, modern Gen-Z style description.
-Generate five short social-media captions that fit THIS image.
-Determine useful song mood keywords for THIS image.
-Provide 4-6 palette colors.
+You decide the creative result for THIS exact image. Different-looking photos should normally produce meaningfully different results.
 
+Create:
+- a punchy primary vibe
+- a secondary vibe
+- a short visual-vibe description
+- a short fit/style analysis based only on visible clothing and styling
+- a named aesthetic
+- five original social-media captions that fit this exact image
+- song mood keywords
+- ONE real song recommendation that best matches the visible vibe
+- playful image-specific aura/style/visual-confidence/energy scores
+- 4-6 matching palette colors
+- relevant hashtags
+
+SONG RULES:
+- Choose the exact song yourself. Do NOT choose from a predefined AuraCheck list.
+- The song may be from any appropriate genre, artist, language or era.
+- Base the choice only on the visible mood/aesthetic of the photo, not on assumptions about the person's identity, nationality or music taste.
+- Prefer a recognizable real song. Do not invent a song or artist.
+- Give one short reason explaining the visual-vibe match.
+- Do not quote song lyrics.
+
+CAPTION RULES:
+- Generate five short, catchy, original captions.
+- Make them specific to the image's vibe.
+- Do not quote song lyrics.
+
+RATINGS:
 Ratings are playful IMAGE-SPECIFIC aesthetic estimates, not objective measurements of the person.
-- aura: overall visual impact of the styling + composition
-- style: outfit coordination, color harmony and styling
-- confidence: VISUAL confidence communicated by pose/presentation only, not the person's actual mental state
+- aura: overall visual impact of styling + composition
+- style: visible outfit coordination, color harmony and styling
+- confidence: VISUAL confidence communicated by pose/presentation only, not the person's real psychological confidence
 - energy: visual intensity/dynamism of the image
 Use integers from 1 to 100.
-Do not reuse fixed/default scores. The ratings must be derived from visible image-specific evidence and should be allowed to vary meaningfully from photo to photo while staying friendly and non-insulting.
+Do not reuse fixed/default scores. Ratings must come from visible image-specific evidence and should vary meaningfully between different photos while staying friendly and non-insulting.
 
 Return ONLY valid JSON matching this schema:
 {
@@ -32,6 +55,11 @@ Return ONLY valid JSON matching this schema:
   "captions": ["", "", "", "", ""],
   "songMood": "",
   "songKeywords": [],
+  "recommendedSong": {
+    "title": "",
+    "artist": "",
+    "reason": ""
+  },
   "ratings": {"aura": 0, "style": 0, "confidence": 0, "energy": 0},
   "colors": [{"name": "", "hex": ""}],
   "hashtags": []
@@ -46,11 +74,19 @@ export function validateAnalysis(input: unknown): AuraAnalysis {
   const x = input as Record<string, any>;
   const ratings = x.ratings || {};
   const colors = x.colors;
+  const recommendedSong = x.recommendedSong || {};
 
   if (![x.primaryVibe, x.secondaryVibe, x.vibeDescription, x.outfitAnalysis, x.aesthetic, x.songMood].every((v) => typeof v === "string" && v.trim())) {
     throw new Error("Invalid AI response");
   }
   if (!isStringArray(x.captions) || x.captions.length < 5 || !isStringArray(x.songKeywords) || !isStringArray(x.hashtags)) {
+    throw new Error("Invalid AI response");
+  }
+  if (
+    ![recommendedSong.title, recommendedSong.artist, recommendedSong.reason].every(
+      (v) => typeof v === "string" && v.trim()
+    )
+  ) {
     throw new Error("Invalid AI response");
   }
   if (![ratings.aura, ratings.style, ratings.confidence, ratings.energy].every(score)) {
@@ -69,6 +105,11 @@ export function validateAnalysis(input: unknown): AuraAnalysis {
     captions: x.captions.slice(0, 5).map((v: string) => v.trim().slice(0, 180)),
     songMood: x.songMood.trim().slice(0, 160),
     songKeywords: x.songKeywords.slice(0, 10).map((v: string) => v.trim().slice(0, 60)),
+    recommendedSong: {
+      title: recommendedSong.title.trim().slice(0, 140),
+      artist: recommendedSong.artist.trim().slice(0, 140),
+      reason: recommendedSong.reason.trim().slice(0, 260),
+    },
     ratings: {
       aura: ratings.aura,
       style: ratings.style,
@@ -117,7 +158,7 @@ export async function analyzeWithGemini(bytes: Buffer, mimeType: string): Promis
               role: "user",
               parts: [
                 {
-                  text: "Analyze this exact uploaded image. Make all vibes, captions, soundtrack keywords and ratings image-specific. Return only the required JSON.",
+                  text: "Analyze this exact uploaded image. Decide the vibe, captions, one exact real song recommendation, colors and ratings from the image. Return only the required JSON.",
                 },
                 { inlineData: { mimeType, data: bytes.toString("base64") } },
               ],
