@@ -15,6 +15,11 @@ export const demoAnalysis: AuraAnalysis = {
   ],
   songMood: "dark luxury confident",
   songKeywords: ["streetwear","night","main character","luxury","confident"],
+  recommendedSong: {
+    title: "Starboy",
+    artist: "The Weeknd",
+    reason: "Its sleek night-time energy fits the dark, polished street-luxe aesthetic."
+  },
   ratings: { aura: 92, style: 88, confidence: 90, energy: 84 },
   colors: [
     { name: "Black", hex: "#111111" },
