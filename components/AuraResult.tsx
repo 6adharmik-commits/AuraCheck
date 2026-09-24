@@ -1,9 +1,8 @@
 "use client";
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import { Download, Share2, RotateCcw, Copy, Check, Sparkles } from "lucide-react";
 import { AuraResultRecord } from "@/lib/types";
-import { matchSongs } from "@/lib/songs";
 import ScoreCircle from "./ScoreCircle";
 import RatingBars from "./RatingBars";
 import CaptionCard from "./CaptionCard";
@@ -15,9 +14,12 @@ export default function AuraResult({ record, onReset }:{ record:AuraResultRecord
   const cardRef=useRef<HTMLDivElement>(null);
   const [busy,setBusy]=useState(false);
   const [copied,setCopied]=useState("");
-  const [visibleSongs,setVisibleSongs]=useState(8);
   const {analysis,songs,localColors}=record;
-  const soundtrack=useMemo(()=>songs.length >= 12 ? songs : matchSongs(analysis,32),[songs,analysis]);
+  const aiSong = analysis.recommendedSong || (songs[0] ? {
+    title:songs[0].title,
+    artist:songs[0].artist,
+    reason:`Matches ${songs[0].matchReason}`
+  } : null);
 
   async function makeImage(){
     if(!cardRef.current) throw new Error("Share card unavailable");
@@ -38,7 +40,8 @@ export default function AuraResult({ record, onReset }:{ record:AuraResultRecord
       const data=await makeImage();
       const blob=await (await fetch(data)).blob();
       const file=new File([blob],"auracheck.png",{type:"image/png"});
-      const text=`My AuraCheck: ${analysis.primaryVibe} — ${analysis.ratings.aura}/100\n${analysis.captions[0]}`;
+      const songLine=aiSong ? `\nSong: ${aiSong.title} — ${aiSong.artist}` : "";
+      const text=`My AuraCheck: ${analysis.primaryVibe} — ${analysis.ratings.aura}/100\n${analysis.captions[0]}${songLine}`;
       if(navigator.share && (!navigator.canShare || navigator.canShare({files:[file]}))) {
         await navigator.share({title:"My AuraCheck",text,files:[file]});
       } else if(navigator.share) {
@@ -96,25 +99,19 @@ export default function AuraResult({ record, onReset }:{ record:AuraResultRecord
       </div>
 
       <section className="glass rounded-[2rem] p-5 sm:p-6">
-        <div className="mb-5 flex items-center justify-between"><h2 className="text-sm font-black tracking-[.18em] text-white/45">CAPTION DROPS</h2><span className="text-xs text-white/30">5 picks</span></div>
+        <div className="mb-5 flex items-center justify-between"><h2 className="text-sm font-black tracking-[.18em] text-white/45">AI CAPTION DROPS</h2><span className="text-xs text-white/30">5 picks</span></div>
         <div className="grid gap-3 lg:grid-cols-2">{analysis.captions.map((c,i)=><CaptionCard key={i} caption={c}/>)}</div>
       </section>
 
       <section className="glass rounded-[2rem] p-5 sm:p-6">
         <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="text-sm font-black tracking-[.18em] text-white/45">YOUR SOUNDTRACK</h2>
-            <p className="mt-2 text-xs text-white/35">Ranked from your vibe, aesthetic and energy · {soundtrack.length} matches</p>
+            <h2 className="text-sm font-black tracking-[.18em] text-white/45">AI PICKED SOUNDTRACK</h2>
+            <p className="mt-2 text-xs text-white/35">Gemini chooses one real song from the visible vibe of this exact photo.</p>
           </div>
-          <span className="rounded-full bg-white/5 px-3 py-2 text-[10px] font-black tracking-wider text-pink-200">VIBE MATCHED</span>
+          <span className="rounded-full bg-white/5 px-3 py-2 text-[10px] font-black tracking-wider text-pink-200">AI DECIDED</span>
         </div>
-        <div className="grid gap-3 md:grid-cols-2">
-          {soundtrack.slice(0,visibleSongs).map((s,i)=><SongCard key={`${s.title}-${s.artist}-${i}`} song={s}/>)}
-        </div>
-        <div className="mt-5 flex flex-wrap justify-center gap-3">
-          {visibleSongs < soundtrack.length && <button onClick={()=>setVisibleSongs(v=>Math.min(v+8,soundtrack.length))} className="rounded-xl bg-white/8 px-5 py-3 text-xs font-black">SHOW 8 MORE</button>}
-          {visibleSongs > 8 && <button onClick={()=>setVisibleSongs(8)} className="rounded-xl border border-white/10 px-5 py-3 text-xs font-black text-white/60">SHOW LESS</button>}
-        </div>
+        {aiSong ? <SongCard song={aiSong}/> : <p className="text-sm text-white/45">No soundtrack recommendation was returned.</p>}
       </section>
 
       <section className="glass rounded-[2rem] p-5 sm:p-6">
@@ -128,8 +125,9 @@ export default function AuraResult({ record, onReset }:{ record:AuraResultRecord
           <h2 className="text-sm font-black tracking-[.18em] text-white/45">POST COMBO</h2>
           <p className="mt-5 text-xs font-bold text-white/35">BEST CAPTION</p>
           <p className="mt-2 text-2xl font-black">&ldquo;{analysis.captions[0]}&rdquo;</p>
-          <p className="mt-6 text-xs font-bold text-white/35">BEST SONG</p>
-          <p className="mt-2 font-bold">{soundtrack[0]?.title} <span className="text-white/40">— {soundtrack[0]?.artist}</span></p>
+          <p className="mt-6 text-xs font-bold text-white/35">AI SONG PICK</p>
+          <p className="mt-2 font-bold">{aiSong?.title || "—"} {aiSong && <span className="text-white/40">— {aiSong.artist}</span>}</p>
+          {aiSong?.reason && <p className="mt-2 text-xs leading-5 text-white/40">{aiSong.reason}</p>}
           <button onClick={()=>copyText("caption",analysis.captions[0])} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-white/8 px-4 py-3 text-xs font-black">{copied==="caption"?<Check size={15}/>:<Copy size={15}/>} {copied==="caption"?"COPIED ✓":"COPY CAPTION"}</button>
         </section>
         <section className="glass rounded-[2rem] p-5 sm:p-6">
