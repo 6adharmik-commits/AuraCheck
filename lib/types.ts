@@ -10,6 +10,12 @@ export interface AuraColor {
   hex: string;
 }
 
+export interface AuraSongRecommendation {
+  title: string;
+  artist: string;
+  reason: string;
+}
+
 export interface AuraAnalysis {
   primaryVibe: string;
   secondaryVibe: string;
@@ -19,6 +25,7 @@ export interface AuraAnalysis {
   captions: string[];
   songMood: string;
   songKeywords: string[];
+  recommendedSong?: AuraSongRecommendation;
   ratings: AuraRatings;
   colors: AuraColor[];
   hashtags: string[];
