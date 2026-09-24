@@ -5,6 +5,12 @@ import Brand from "./Brand";
 
 const ShareCard = forwardRef<HTMLDivElement, { record:AuraResultRecord }>(({ record }, ref) => {
   const { analysis, songs, localColors, imageDataUrl } = record;
+  const aiSong = analysis.recommendedSong || (songs[0] ? {
+    title:songs[0].title,
+    artist:songs[0].artist,
+    reason:`Matches ${songs[0].matchReason}`
+  } : null);
+
   return (
     <div ref={ref} className="relative overflow-hidden rounded-[2rem] bg-[#0A0A0A] p-5 text-white" style={{width:720}}>
       <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-purple-600/30 blur-3xl"/>
@@ -32,15 +38,15 @@ const ShareCard = forwardRef<HTMLDivElement, { record:AuraResultRecord }>(({ rec
           <div className="rounded-3xl border border-white/10 bg-white/[.04] p-5">
             <p className="text-[11px] font-black tracking-[.18em] text-white/35">TOP CAPTION</p>
             <p className="mt-2 text-xl font-black">&ldquo;{analysis.captions[0]}&rdquo;</p>
-            <p className="mt-5 text-[11px] font-black tracking-[.18em] text-white/35">TOP SONG</p>
-            <p className="mt-2 font-bold">{songs[0]?.title} <span className="text-white/45">— {songs[0]?.artist}</span></p>
+            <p className="mt-5 text-[11px] font-black tracking-[.18em] text-white/35">AI SONG PICK</p>
+            <p className="mt-2 font-bold">{aiSong?.title || "—"} {aiSong && <span className="text-white/45">— {aiSong.artist}</span>}</p>
           </div>
           <div className="rounded-3xl border border-white/10 bg-white/[.04] p-5">
             <p className="text-[11px] font-black tracking-[.18em] text-white/35">YOUR COLORS</p>
             <div className="mt-4 flex gap-3">
               {localColors.slice(0,5).map((c,i)=><div key={i} className="h-16 flex-1 rounded-2xl border border-white/10" style={{background:c.hex}}/>)}
             </div>
-            <p className="mt-4 text-xs font-semibold text-white/45">Upload your look. Discover your vibe.</p>
+            <p className="mt-4 text-xs font-semibold text-white/45">Upload your look. Let AI discover the vibe.</p>
           </div>
         </div>
       </div>
