@@ -1,24 +1,32 @@
 name: Unpack AuraCheck
 on:
-  push:
+  pull_request:
     branches: [main]
+
 permissions:
   contents: write
+
 jobs:
   unpack:
-    if: contains(github.event.head_commit.message, 'Stage AuraCheck archive')
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
       - name: Unpack final app
         shell: bash
         run: |
+          test -f auracheck.tar.gz
           rm -rf .stage
           mkdir .stage
           tar -xzf auracheck.tar.gz -C .stage
           shopt -s dotglob nullglob
           cp -R .stage/AuraCheck/* .
-          rm -rf .stage auracheck.tar.gz
+          rm -rf .stage auracheck.tar.gz .deploy-trigger .github/workflows/unpack.yml
+
       - name: Commit app files
         shell: bash
         run: |
@@ -26,4 +34,4 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add -A
           git commit -m "Deploy AuraCheck app" || exit 0
-          git push
+          git push origin HEAD:${{ github.head_ref }}
