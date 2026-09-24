@@ -6,14 +6,6 @@ import ErrorMessage from "./ErrorMessage";
 import CameraCapture from "./CameraCapture";
 
 const MAX = 25 * 1024 * 1024;
-const knownImageExt = /\.(jpe?g|png|webp|heic|heif)$/i;
-
-function isLikelyPhoneOrTablet() {
-  if (typeof window === "undefined") return false;
-  const coarse = window.matchMedia?.("(pointer: coarse)").matches ?? false;
-  const mobileUA = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-  return coarse || mobileUA;
-}
 
 export default function ImageUploader({ file, preview, onSelect, onRemove, onAnalyze, busy }: {
   file: File | null;
@@ -24,43 +16,43 @@ export default function ImageUploader({ file, preview, onSelect, onRemove, onAna
   busy: boolean;
 }) {
   const picker = useRef<HTMLInputElement>(null);
-  const phoneCameraPicker = useRef<HTMLInputElement>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [error, setError] = useState("");
 
   const validateAndUse = (candidate?: File) => {
     setError("");
-    if (!candidate) return;
-    const looksLikeImage = candidate.type.startsWith("image/") || knownImageExt.test(candidate.name);
-    if (!looksLikeImage) {
-      setError("Please choose an image from your camera or gallery.");
-      return;
-    }
-    if (candidate.size > MAX) {
-      setError("That photo is over 25 MB. Choose a smaller image or use a normal camera mode.");
+    if (!candidate) {
+      setError("No photo was received. Please choose the image again.");
       return;
     }
     if (!candidate.size) {
       setError("We couldn't read that photo. Try another one.");
       return;
     }
+    if (candidate.size > MAX) {
+      setError("That photo is over 25 MB. Choose a smaller image or use a normal camera mode.");
+      return;
+    }
+
+    // Do not reject Android content-provider files just because MIME/extension is unusual.
+    // The browser image decoder will validate the actual image when AuraCheck processes it.
     onSelect(candidate);
+  };
+
+  const openGallery = () => {
+    setError("");
+    if (picker.current) {
+      // Reset before opening. Clearing immediately after Android returns can invalidate
+      // some OEM content-provider selections before React has finished using the File.
+      picker.current.value = "";
+      picker.current.click();
+    }
   };
 
   const openImmediateCamera = () => {
     setError("");
-
-    // On phones/tablets the capture input launches the device camera directly.
-    // This avoids relying on getUserMedia for the primary mobile flow.
-    if (isLikelyPhoneOrTablet()) {
-      if (phoneCameraPicker.current) {
-        phoneCameraPicker.current.value = "";
-        phoneCameraPicker.current.click();
-      }
-      return;
-    }
-
-    // Desktop/laptop: show the live camera modal.
+    // Keep camera capture inside the web page. Some Android browsers/custom tabs
+    // reload when switching to the external camera app, which loses the selected File.
     setCameraOpen(true);
   };
 
@@ -82,10 +74,10 @@ export default function ImageUploader({ file, preview, onSelect, onRemove, onAna
                   <ImagePlus size={28} className="text-pink-300" />
                 </div>
                 <h2 className="text-xl font-black">Drop your look here</h2>
-                <p className="mt-2 text-sm text-white/45">JPG, PNG, WEBP or phone camera photo · max 25 MB</p>
+                <p className="mt-2 text-sm text-white/45">Choose a phone photo or camera image · max 25 MB</p>
 
                 <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-                  <button type="button" onClick={() => picker.current?.click()} className="gradient-btn rounded-2xl px-5 py-3 text-sm font-black">
+                  <button type="button" onClick={openGallery} className="gradient-btn rounded-2xl px-5 py-3 text-sm font-black">
                     UPLOAD PHOTO
                   </button>
                   <button type="button" onClick={openImmediateCamera} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-black transition hover:bg-white/10">
@@ -94,7 +86,7 @@ export default function ImageUploader({ file, preview, onSelect, onRemove, onAna
                 </div>
 
                 <p className="mt-3 text-xs leading-5 text-white/30">
-                  On Android/iPhone, Take Photo Now opens the device camera. On computers, it opens AuraCheck&apos;s live camera.
+                  Take Photo Now stays inside AuraCheck so Android does not lose the photo when switching apps.
                 </p>
               </div>
             </div>
@@ -103,11 +95,16 @@ export default function ImageUploader({ file, preview, onSelect, onRemove, onAna
           <div className="glass rounded-[2rem] p-4 sm:p-5">
             <div className="overflow-hidden rounded-[1.5rem] bg-black/40">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={preview} alt="Selected look preview" className="mx-auto max-h-[62vh] w-full object-contain" />
+              <img
+                src={preview}
+                alt="Selected look preview"
+                className="mx-auto max-h-[62vh] w-full object-contain"
+                onError={() => setError("Photo selected, but this browser cannot preview its format. Try a JPG/PNG image or use Take Photo Now.")}
+              />
             </div>
 
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <button type="button" onClick={() => picker.current?.click()} disabled={busy} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold disabled:opacity-40">
+              <button type="button" onClick={openGallery} disabled={busy} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold disabled:opacity-40">
                 <RefreshCw size={16} /> Change Photo
               </button>
               <button type="button" onClick={openImmediateCamera} disabled={busy} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold disabled:opacity-40">
@@ -125,24 +122,12 @@ export default function ImageUploader({ file, preview, onSelect, onRemove, onAna
 
         <input
           ref={picker}
-          hidden
-          type="file"
-          accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
-          onChange={(event) => {
-            validateAndUse(event.target.files?.[0]);
-            event.currentTarget.value = "";
-          }}
-        />
-
-        <input
-          ref={phoneCameraPicker}
-          hidden
+          className="sr-only"
           type="file"
           accept="image/*"
-          capture="environment"
           onChange={(event) => {
-            validateAndUse(event.target.files?.[0]);
-            event.currentTarget.value = "";
+            const selected = event.currentTarget.files?.[0];
+            validateAndUse(selected);
           }}
         />
       </div>
