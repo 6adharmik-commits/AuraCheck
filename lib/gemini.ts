@@ -142,34 +142,66 @@ export async function analyzeWithGemini(bytes: Buffer, mimeType: string): Promis
   const timer = setTimeout(() => controller.abort(), 50000);
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-      {
-        method: "POST",
-        signal: controller.signal,
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": apiKey,
-        },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-          contents: [
-            {
-              role: "user",
-              parts: [
-                {
-                  text: "Analyze this exact uploaded image. Decide the vibe, captions, one exact real song recommendation, colors and ratings from the image. Return only the required JSON.",
-                },
-                { inlineData: { mimeType, data: bytes.toString("base64") } },
-              ],
-            },
-          ],
-          generationConfig: {
-            responseMimeType: "application/json",
+    let response: Response | null = null;
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const current = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+        {
+          method: "POST",
+          signal: controller.signal,
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": apiKey,
           },
-        }),
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  {
+                    text: "Analyze this exact uploaded image. Decide the vibe, captions, one exact real song recommendation, colors and ratings from the image. Return only the required JSON.",
+                  },
+                  { inlineData: { mimeType, data: bytes.toString("base64") } },
+                ],
+              },
+            ],
+            generationConfig: {
+              responseMimeType: "application/json",
+            },
+          }),
+        }
+      );
+
+      if (current.ok) {
+        response = current;
+        break;
       }
-    );
+
+      const retryable =
+        current.status === 408 ||
+        current.status === 429 ||
+        current.status >= 500;
+
+      if (!retryable || attempt === 2) {
+        response = current;
+        break;
+      }
+
+      // Consume the failed response before retrying so the connection can be reused.
+      await current.text().catch(() => "");
+
+      const delay = 1000 * Math.pow(2, attempt);
+      console.warn(
+        `Gemini returned HTTP ${current.status}; retrying in ${delay}ms (attempt ${attempt + 2}/3).`
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+
+    if (!response) {
+      throw new Error("PROVIDER_503");
+    }
 
     if (!response.ok) {
       const raw = await response.text().catch(() => "");
